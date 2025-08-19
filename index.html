@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AP1 Quiz – FIAE (Programmierung & Softwareentwicklung)</title>
+  <style>
+    :root{
+      --bg:#0e0f12; --panel:#14161b; --muted:#9aa3b2; --text:#e6e8ee; --accent:#4da3ff; --accent-2:#ff8a3d; --ok:#36d399; --err:#ff6b6b;
+      --radius:16px; --shadow:0 10px 30px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Inter, Arial, sans-serif; background:linear-gradient(180deg,#0b0c10,#0f1116); color:var(--text)}
+    .wrap{max-width:950px; margin:40px auto; padding:0 20px}
+    header{display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:24px}
+    h1{font-size:clamp(20px,4vw,28px); margin:0}
+    .meta{display:flex; gap:10px; flex-wrap:wrap; color:var(--muted); font-size:14px}
+    .card{background:var(--panel); border:1px solid #1f2330; border-radius:var(--radius); box-shadow:var(--shadow); padding:20px}
+    button{appearance:none; border:1px solid #2a2f3d; background:#1a1f2b; color:var(--text); padding:10px 14px; border-radius:12px; cursor:pointer; transition:.15s transform,.15s background}
+    button:hover{transform:translateY(-1px); background:#202638}
+    button.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2)); border:none; color:#0b0c10}
+    button.primary:hover{filter:brightness(1.05)}
+    .row{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
+    .spacer{height:16px}
+    .question{font-size:18px; margin:0 0 14px}
+    .options{display:grid; gap:10px}
+    .opt{border:1px solid #2a2f3d; background:#121620; padding:12px 14px; border-radius:12px; cursor:pointer}
+    .opt.correct{outline:2px solid var(--ok); background:#0f1a17}
+    .opt.wrong{outline:2px solid var(--err); background:#1a1111}
+    .explain{margin-top:12px; color:var(--muted)}
+    .code{background:#0b0f17; border:1px solid #1e2433; padding:12px; border-radius:12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; overflow:auto}
+    input[type=text], textarea{width:100%; background:#0e1220; border:1px solid #2a2f3d; color:var(--text); padding:10px 12px; border-radius:10px}
+    ol.sortable, ul.sortable{list-style:none; padding:0; margin:0; display:grid; gap:10px}
+    .draggable{padding:10px 12px; border-radius:12px; background:#121620; border:1px dashed #2a2f3d; cursor:grab}
+    .drag-over{outline:2px dashed var(--accent)}
+    .footer{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:16px}
+    .pill{padding:6px 10px; border-radius:999px; background:#121620; border:1px solid #2a2f3d; color:var(--muted); font-size:12px}
+    .progress{height:10px; background:#10131b; border:1px solid #242a39; border-radius:999px; overflow:hidden}
+    .progress > div{height:100%; background:linear-gradient(90deg,var(--accent),var(--accent-2)); width:0%}
+    .hidden{display:none}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>AP1 Quiz – FIAE (Programmierung & Softwareentwicklung)</h1>
+      <div class="meta">
+        <span class="pill" id="count">0/0</span>
+        <span class="pill" id="score">Punkte: 0</span>
+        <span class="pill" id="streak">Streak: 0</span>
+      </div>
+    </header>
+
+    <div class="card">
+      <div class="progress"><div id="bar"></div></div>
+      <div class="spacer"></div>
+
+      <div id="view-intro">
+        <p>Kurzer Check wie in der IHK-AP1: gemischte Fragen (Single Choice, Code-Output, Lückencode, Reihenfolge). JSON wird aus <code>questions.json</code> im selben Verzeichnis geladen.</p>
+        <div class="spacer"></div>
+        <div class="row">
+          <button class="primary" id="btn-start">Start</button>
+          <button id="btn-load">Neu laden</button>
+        </div>
+        <p class="explain" id="load-status"></p>
+      </div>
+
+      <div id="view-quiz" class="hidden">
+        <p class="pill" id="q-meta"></p>
+        <h2 class="question" id="q-text"></h2>
+        <pre class="code hidden" id="q-code"></pre>
+        <div id="q-ui"></div>
+        <div class="explain" id="q-explain"></div>
+        <div class="footer">
+          <button id="btn-prev">Zurück</button>
+          <div class="row">
+            <button id="btn-skip">Überspringen</button>
+            <button class="primary" id="btn-check">Prüfen</button>
+            <button id="btn-next">Weiter</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="view-result" class="hidden">
+        <h2>Ergebnis</h2>
+        <p id="result-text"></p>
+        <div class="row">
+          <button id="btn-retry-wrong">Falsche wiederholen</button>
+          <button class="primary" id="btn-restart">Alles neu starten</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="explain">Tipp: Lege <code>questions.json</code> ins gleiche Verzeichnis. Bei Fehlern nutzt die App einen eingebauten Mini-Fragenpool.</p>
+  </div>
+
+  <script>
+  const state = {
+    items: [],
+    order: [],
+    i: 0,
+    score: 0,
+    streak: 0,
+    answered: new Map(), // id -> {correct:boolean}
+  };
+
+  const el = sel => document.querySelector(sel);
+  const intro = el('#view-intro'), quiz = el('#view-quiz'), result = el('#view-result');
+  const qMeta = el('#q-meta'), qText = el('#q-text'), qCode = el('#q-code'), qUI = el('#q-ui'), qExplain = el('#q-explain');
+  const count = el('#count'), score = el('#score'), streak = el('#streak'), bar = el('#bar');
+
+  const fallback = [
+    {"id":"dt-001","type":"mc_single","question":"Welcher Datentyp passt zu 3.14?","options":["Integer","String","Float/Double","Boolean"],"answer":2,"explain":"3.14 ist eine Gleitkommazahl."},
+    {"id":"op-001","type":"mc_single","question":"Was liefert (10 > 5) && (3 < 2)?","options":["true","false"],"answer":1,"explain":"true && false ergibt false."},
+    {"id":"ctl-001","type":"code_output","lang":"java","snippet":"int x = 0; for (int i=1;i<=3;i++) x += i; System.out.println(x);","expected_output":"6","explain":"1+2+3 = 6."},
+    {"id":"arr-001","type":"code_fill","lang":"java","snippet":"int min = arr[0]; for (int i=1;i<arr.length;i++){ if(_____) { min = arr[i]; } }","blanks":["arr[i] < min"],"explain":"Minimum prüfen: aktuelles Element kleiner als min."},
+    {"id":"str-001","type":"mc_single","question":"Wie ermittelst du die Länge eines Strings in Java?","options":["str.size()","str.len()","str.length()","length(str)"],"answer":2,"explain":"In Java: length()."},
+    {"id":"fn-001","type":"mc_single","question":"Wofür steht der Operator = in Java?","options":["Vergleich","Zuweisung","Modulo","Negation"],"answer":1,"explain":"= weist einen Wert zu."},
+    {"id":"oop-001","type":"order","question":"Bringe die Begriffe in die richtige Beziehung (vom Allgemeinen zum Konkreten).","options":["Klasse","Objekt","Attribut","Methode"],"correct_order":["Klasse","Attribut","Methode","Objekt"],"explain":"Klasse beschreibt; Attribute/Methode gehören zur Klasse; Objekt ist Instanz."},
+    {"id":"dbg-001","type":"mc_single","question":"Welcher Fehler tritt hier auf? int[] z={1,2,3}; System.out.println(z[3]);","options":["NullPointerException","ArithmeticException","ArrayIndexOutOfBoundsException","ClassCastException"],"answer":2,"explain":"Index 3 existiert nicht (0..2)."}
+  ];
+
+  async function loadQuestions() {
+    el('#load-status').textContent = 'Lade questions.json…';
+    try {
+      const res = await fetch('questions.json', {cache:'no-store'});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const data = await res.json();
+      if(!Array.isArray(data) || data.length===0) throw new Error('Leere/ungültige JSON');
+      return data;
+    } catch(err) {
+      el('#load-status').textContent = 'Konnte questions.json nicht laden – nutze eingebauten Mini-Pool.';
+      return fallback;
+    }
+  }
+
+  function shuffle(a){
+    for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}
+    return a;
+  }
+
+  function start(items){
+    state.items = shuffle(items.slice());
+    state.order = state.items.map(x=>x.id);
+    state.i = 0; state.score = 0; state.streak = 0; state.answered.clear();
+    intro.classList.add('hidden'); result.classList.add('hidden'); quiz.classList.remove('hidden');
+    render();
+  }
+
+  function render(){
+    const total = state.items.length; const idx = state.i; const item = state.items[idx];
+    count.textContent = `${idx+1}/${total}`; score.textContent = `Punkte: ${state.score}`; streak.textContent = `Streak: ${state.streak}`;
+    bar.style.width = `${((idx)/Math.max(1,total))*100}%`;
+
+    qExplain.textContent = ''; qExplain.classList.remove('ok','err');
+    qUI.innerHTML = ''; qCode.classList.add('hidden');
+
+    qMeta.textContent = `${item.type.toUpperCase()} • ID: ${item.id}`;
+    qText.textContent = item.question || '—';
+    if(item.snippet){ qCode.textContent = item.snippet; qCode.classList.remove('hidden'); }
+
+    if(item.type === 'mc_single') renderMC(item);
+    else if(item.type === 'code_output') renderCodeOutput(item);
+    else if(item.type === 'code_fill') renderCodeFill(item);
+    else if(item.type === 'order') renderOrder(item);
+    else { qUI.textContent = 'Nicht unterstützter Fragetyp.' }
+  }
+
+  function renderMC(item){
+    const box = document.createElement('div'); box.className='options';
+    item.options.forEach((opt, i)=>{
+      const div = document.createElement('div');
+      div.className = 'opt'; div.tabIndex=0; div.textContent = opt;
+      div.addEventListener('click', ()=> select(i));
+      div.addEventListener('keydown', e=>{if(e.key==='Enter' || e.key===' ') {e.preventDefault(); select(i);}});
+      box.appendChild(div);
+    });
+    qUI.appendChild(box);
+
+    function select(i){
+      const correct = i === Number(item.answer);
+      [...box.children].forEach((c,idx)=>{
+        c.classList.toggle('correct', idx===Number(item.answer));
+        c.classList.toggle('wrong', idx===i && !correct);
+      });
+      finalize(correct, item.explain);
+    }
+  }
+
+  function renderCodeOutput(item){
+    const hint = document.createElement('div'); hint.className='explain';
+    hint.textContent = 'Gib den erwarteten Konsolen-Output exakt ein.';
+    const input = document.createElement('input'); input.type='text'; input.placeholder='z.B. 42';
+    qUI.append(hint, input);
+  }
+
+  function renderCodeFill(item){
+    const hint = document.createElement('div'); hint.className='explain';
+    hint.textContent = 'Fülle die Lücke(n) korrekt aus.';
+    const ta = document.createElement('input'); ta.type='text'; ta.placeholder='fehlender Ausdruck';
+    qUI.append(hint, ta);
+  }
+
+  function renderOrder(item){
+    const list = document.createElement('ul'); list.className='sortable';
+    item.options.forEach((t,i)=>{
+      const li = document.createElement('li'); li.className='draggable'; li.draggable=true; li.textContent = t; li.dataset.val=t;
+      li.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain', t); setTimeout(()=> li.classList.add('dragging'),0);});
+      li.addEventListener('dragend', ()=> li.classList.remove('dragging'));
+      list.appendChild(li);
+    });
+
+    list.addEventListener('dragover', e=>{
+      e.preventDefault();
+      const dragging = list.querySelector('.dragging');
+      const after = getDragAfterElement(list, e.clientY);
+      if(after==null) list.appendChild(dragging); else list.insertBefore(dragging, after);
+    });
+
+    function getDragAfterElement(container, y){
+      const els=[...container.querySelectorAll('.draggable:not(.dragging)')];
+      return els.reduce((closest,child)=>{
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height/2;
+        if(offset<0 && offset>closest.offset){return {offset, element:child}} else return closest;
+      }, {offset:Number.NEGATIVE_INFINITY}).element;
+    }
+
+    qUI.appendChild(list);
+  }
+
+  function checkCurrent(){
+    const item = state.items[state.i];
+    if(item.type==='mc_single'){ return; } // already finalized via click
+
+    if(item.type==='code_output'){
+      const input = qUI.querySelector('input[type=text]');
+      const val = (input?.value ?? '').trim();
+      const correct = val === String(item.expected_output).trim();
+      finalize(correct, item.explain);
+      if(correct){ input.style.outline = '2px solid var(--ok)'; } else { input.style.outline = '2px solid var(--err)'; }
+      return;
+    }
+
+    if(item.type==='code_fill'){
+      const val = (qUI.querySelector('input')?.value ?? '').trim();
+      const expect = (item.blanks && item.blanks[0]) ? String(item.blanks[0]).trim() : '';
+      const correct = normalize(val) === normalize(expect);
+      finalize(correct, item.explain + (expect? ` Erwartet: ${item.blanks[0]}`:''));
+      return;
+    }
+
+    if(item.type==='order'){
+      const listVals = [...qUI.querySelectorAll('.draggable')].map(li=>li.dataset.val);
+      const correct = JSON.stringify(listVals) === JSON.stringify(item.correct_order);
+      finalize(correct, item.explain + `\nDeine Reihenfolge: ${listVals.join(' → ')}`);
+      return;
+    }
+  }
+
+  function normalize(s){
+    return s.replace(/\s+/g,' ').replace(/;$/,'').trim();
+  }
+
+  function finalize(correct, explain){
+    if(state.answered.get(curId())?.done) return; // prevent double-counting
+
+    state.answered.set(curId(), {done:true, correct});
+    if(correct){ state.score += 1; state.streak += 1; qExplain.style.color = 'var(--ok)'; qExplain.textContent = 'Richtig! ' + (explain||''); }
+    else { state.streak = 0; qExplain.style.color = 'var(--err)'; qExplain.textContent = 'Leider falsch. ' + (explain||''); }
+    score.textContent = `Punkte: ${state.score}`; streak.textContent = `Streak: ${state.streak}`;
+  }
+
+  function curId(){ return state.items[state.i].id; }
+
+  function next(){
+    if(state.i < state.items.length-1){ state.i++; render(); }
+    else { finish(); }
+  }
+  function prev(){ if(state.i>0){ state.i--; render(); } }
+
+  function skip(){ state.streak = 0; next(); }
+
+  function finish(){
+    quiz.classList.add('hidden'); result.classList.remove('hidden');
+    const total = state.items.length; const correct = state.score;
+    el('#result-text').textContent = `Ergebnis: ${correct} von ${total} korrekt – ${(correct/total*100).toFixed(0)}%`;
+    bar.style.width = '100%';
+  }
+
+  function retryWrong(){
+    const wrong = state.items.filter(it=>!(state.answered.get(it.id)?.correct));
+    if(wrong.length===0){ alert('Keine falschen Fragen – stark!'); return; }
+    start(wrong);
+  }
+
+  // Event listeners
+  el('#btn-load').addEventListener('click', async()=>{ const items=await loadQuestions(); el('#load-status').textContent = `Geladen: ${items.length} Fragen.`; });
+  el('#btn-start').addEventListener('click', async()=>{ const items=await loadQuestions(); start(items); });
+  el('#btn-check').addEventListener('click', checkCurrent);
+  el('#btn-next').addEventListener('click', next);
+  el('#btn-prev').addEventListener('click', prev);
+  el('#btn-skip').addEventListener('click', skip);
+  el('#btn-restart').addEventListener('click', async()=>{ const items=await loadQuestions(); start(items); });
+  el('#btn-retry-wrong').addEventListener('click', retryWrong);
+
+  // Auto-load status on first paint
+  loadQuestions().then(items=>{ el('#load-status').textContent = `Bereit. Gefundene Fragen: ${items.length}`; });
+  </script>
+</body>
+</html>
