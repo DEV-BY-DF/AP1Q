@@ -1,0 +1,66 @@
+[
+  {
+    "id": "dt-001",
+    "type": "mc_single",
+    "question": "Welcher Datentyp passt zu 3.14?",
+    "options": ["Integer", "String", "Float/Double", "Boolean"],
+    "answer": 2,
+    "explain": "3.14 ist eine Gleitkommazahl."
+  },
+  {
+    "id": "op-001",
+    "type": "mc_single",
+    "question": "Was liefert (10 > 5) && (3 < 2)?",
+    "options": ["true", "false"],
+    "answer": 1,
+    "explain": "true && false ergibt false."
+  },
+  {
+    "id": "ctl-001",
+    "type": "code_output",
+    "lang": "java",
+    "snippet": "int x = 0; for (int i=1;i<=3;i++) x += i; System.out.println(x);",
+    "expected_output": "6",
+    "explain": "1+2+3 = 6."
+  },
+  {
+    "id": "arr-001",
+    "type": "code_fill",
+    "lang": "java",
+    "snippet": "int min = arr[0]; for (int i=1;i<arr.length;i++){ if(_____) { min = arr[i]; } }",
+    "blanks": ["arr[i] < min"],
+    "explain": "Minimum prüfen: aktuelles Element kleiner als min."
+  },
+  {
+    "id": "str-001",
+    "type": "mc_single",
+    "question": "Wie ermittelst du die Länge eines Strings in Java?",
+    "options": ["str.size()", "str.len()", "str.length()", "length(str)"],
+    "answer": 2,
+    "explain": "In Java: length()."
+  },
+  {
+    "id": "fn-001",
+    "type": "mc_single",
+    "question": "Wofür steht der Operator = in Java?",
+    "options": ["Vergleich", "Zuweisung", "Modulo", "Negation"],
+    "answer": 1,
+    "explain": "= weist einen Wert zu."
+  },
+  {
+    "id": "oop-001",
+    "type": "order",
+    "question": "Bringe die Begriffe in die richtige Beziehung (vom Allgemeinen zum Konkreten).",
+    "options": ["Klasse", "Objekt", "Attribut", "Methode"],
+    "correct_order": ["Klasse", "Attribut", "Methode", "Objekt"],
+    "explain": "Klasse beschreibt; Attribute/Methode gehören zur Klasse; Objekt ist Instanz."
+  },
+  {
+    "id": "dbg-001",
+    "type": "mc_single",
+    "question": "Welcher Fehler tritt hier auf? int[] z={1,2,3}; System.out.println(z[3]);",
+    "options": ["NullPointerException", "ArithmeticException", "ArrayIndexOutOfBoundsException", "ClassCastException"],
+    "answer": 2,
+    "explain": "Index 3 existiert nicht (0..2)."
+  }
+]
